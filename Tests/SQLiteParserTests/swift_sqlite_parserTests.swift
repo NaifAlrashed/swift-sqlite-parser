@@ -23,14 +23,21 @@ struct SelectTestCase {
     var validStatements: [(String, SelectStatement)] {
         [
             ("SELECT * FROM \(tableName);", SelectStatement(table: tableName, columns: .all)),
-            ("SELECT id FROM \(tableName);", SelectStatement(table: tableName, columns: .column("id"))),
+            ("SELECT id FROM \(tableName);", SelectStatement(table: tableName, columns: .columns(["id"]))),
             ("SELECT    *     FROM    \(tableName);", SelectStatement(table: tableName, columns: .all)),
             ("""
             SELECT
                 *
             FROM
                 \(tableName);
-            """, SelectStatement(table: tableName, columns: .all))
+            """, SelectStatement(table: tableName, columns: .all)),
+            ("""
+            SELECT
+                id
+            FROM
+                \(tableName);
+            """, SelectStatement(table: tableName, columns: .columns(["id"]))),
+            ("SELECT id, link FROM \(tableName);", SelectStatement(table: tableName, columns: .columns(["id", "link"])))
         ]
     }
 }
@@ -53,7 +60,14 @@ let columnParser = OneOf {
     multipleColumns
 }
 
-let multipleColumns = Prefix { $0 != " ".utf8.first }.map { Columns.column(String($0)!) }
+let multipleColumns = Many {
+    Prefix { $0 != ",".utf8.first && $0 != " ".utf8.first && $0 != "\n".utf8.first }.compactMap(String.init)
+} separator: {
+    Whitespace()
+    ",".utf8
+    Whitespace()
+}
+.map { Columns.columns($0) }
 
 let allColumns = "*".utf8.map { Columns.all }
 
@@ -64,5 +78,5 @@ struct SelectStatement: Hashable {
 
 enum Columns: Hashable {
     case all
-    case column(String)
+    case columns(Array<String>)
 }
