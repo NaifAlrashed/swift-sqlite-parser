@@ -23,6 +23,7 @@ struct SelectTestCase {
     var validStatements: [(String, SelectStatement)] {
         [
             ("SELECT * FROM \(tableName);", SelectStatement(table: tableName, columns: .all)),
+            ("SELECT id FROM \(tableName);", SelectStatement(table: tableName, columns: .column("id"))),
             ("SELECT    *     FROM    \(tableName);", SelectStatement(table: tableName, columns: .all)),
             ("""
             SELECT
@@ -37,15 +38,24 @@ struct SelectTestCase {
 let selectParser = Parse {
     "SELECT".utf8
     Whitespace()
-    "*".utf8
+    columnParser
     Whitespace()
     "FROM".utf8
     Whitespace()
     Prefix { $0 != ";".utf8.first }
     ";".utf8
-}.map { tableName in
-    SelectStatement(table: String(tableName)!, columns: .all)
+}.map { (column, tableName) in
+    SelectStatement(table: String(tableName)!, columns: column)
 }
+
+let columnParser = OneOf {
+    allColumns
+    multipleColumns
+}
+
+let multipleColumns = Prefix { $0 != " ".utf8.first }.map { Columns.column(String($0)!) }
+
+let allColumns = "*".utf8.map { Columns.all }
 
 struct SelectStatement: Hashable {
     let table: String
@@ -54,4 +64,5 @@ struct SelectStatement: Hashable {
 
 enum Columns: Hashable {
     case all
+    case column(String)
 }
