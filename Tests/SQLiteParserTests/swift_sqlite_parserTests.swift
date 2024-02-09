@@ -3,22 +3,38 @@ import XCTest
 import Parsing
 
 final class SqliteParserTests: XCTestCase {
-    func testSelectStatement() throws {
-        let validSelectStatements = [
-            "SELECT * FROM users;",
-            "SELECT    *     FROM    users;",
+    func testSelectAllStatement() throws {
+        let validSelectStatementWithDifferentTableNames: [SelectTestCase] = [
+            SelectTestCase(tableName: "users"),
+            SelectTestCase(tableName: "employees"),
+        ]
+        try validSelectStatementWithDifferentTableNames.forEach { validSelectStatementsForGivenTableName in
+            let expectedOutput = SelectStatement(
+                table: validSelectStatementsForGivenTableName.tableName,
+                columns: .all
+            )
+            try validSelectStatementsForGivenTableName.validStatements.forEach { validSelectStatement in
+                let result = try selectParser.parse(validSelectStatement)
+                XCTAssertEqual(result, expectedOutput)
+            }
+        }
+    }
+}
+
+struct SelectTestCase {
+    let tableName: String
+    
+    var validStatements: [String] {
+        [
+            "SELECT * FROM \(tableName);",
+            "SELECT    *     FROM    \(tableName);",
             """
             SELECT
                 *
             FROM
-                users;
+                \(tableName);
             """
         ]
-        let expectedOutput = SelectStatement(table: "users", columns: .all)
-        try validSelectStatements.forEach { validSelectStatement in
-            let result = try selectParser.parse("SELECT * FROM users;")
-            XCTAssertEqual(result, expectedOutput)
-        }
     }
 }
 
@@ -29,9 +45,10 @@ let selectParser = Parse {
     Whitespace()
     "FROM".utf8
     Whitespace()
-    "users;".utf8
-}.map { _ in
-    SelectStatement(table: "users", columns: .all)
+    Prefix { $0 != ";".utf8.first }
+    ";".utf8
+}.map { tableName in
+    SelectStatement(table: String(tableName)!, columns: .all)
 }
 
 struct SelectStatement: Hashable {
