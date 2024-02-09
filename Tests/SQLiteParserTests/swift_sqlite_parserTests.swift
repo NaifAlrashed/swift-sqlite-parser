@@ -9,11 +9,7 @@ final class SqliteParserTests: XCTestCase {
             SelectTestCase(tableName: "employees"),
         ]
         try validSelectStatementWithDifferentTableNames.forEach { validSelectStatementsForGivenTableName in
-            let expectedOutput = SelectStatement(
-                table: validSelectStatementsForGivenTableName.tableName,
-                columns: .all
-            )
-            try validSelectStatementsForGivenTableName.validStatements.forEach { validSelectStatement in
+            try validSelectStatementsForGivenTableName.validStatements.forEach { (validSelectStatement, expectedOutput) in
                 let result = try selectParser.parse(validSelectStatement)
                 XCTAssertEqual(result, expectedOutput)
             }
@@ -24,16 +20,16 @@ final class SqliteParserTests: XCTestCase {
 struct SelectTestCase {
     let tableName: String
     
-    var validStatements: [String] {
+    var validStatements: [(String, SelectStatement)] {
         [
-            "SELECT * FROM \(tableName);",
-            "SELECT    *     FROM    \(tableName);",
-            """
+            ("SELECT * FROM \(tableName);", SelectStatement(table: tableName, columns: .all)),
+            ("SELECT    *     FROM    \(tableName);", SelectStatement(table: tableName, columns: .all)),
+            ("""
             SELECT
                 *
             FROM
                 \(tableName);
-            """
+            """, SelectStatement(table: tableName, columns: .all))
         ]
     }
 }
