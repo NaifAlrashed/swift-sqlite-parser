@@ -9,9 +9,19 @@ final class SqliteParserTests: XCTestCase {
             SelectTestCase(tableName: "employees"),
         ]
         try validSelectStatementWithDifferentTableNames.forEach { validSelectStatementsForGivenTableName in
-            try validSelectStatementsForGivenTableName.validStatements.forEach { (validSelectStatement, expectedOutput) in
-                let result = try selectParser.parse(validSelectStatement)
-                XCTAssertEqual(result, expectedOutput)
+            try validSelectStatementsForGivenTableName.validStatements.forEach { (validSelectStatement, selectOrError) in
+                do {
+                    let result = try selectParser.parse(validSelectStatement)
+                    if case let .select(expectedOutput) = selectOrError {
+                        XCTAssertEqual(result, expectedOutput)
+                    } else {
+                        XCTFail("expected to throw an error but the operation succeeded")
+                    }
+                } catch {
+                    if selectOrError != .error {
+                        throw error
+                    }
+                }
             }
         }
     }
@@ -20,28 +30,35 @@ final class SqliteParserTests: XCTestCase {
 struct SelectTestCase {
     let tableName: String
     
-    var validStatements: [(String, SelectStatement)] {
+    var validStatements: [(String, SelectStatementOrError)] {
         [
-            ("SELECT * FROM \(tableName);", SelectStatement(tables: [.table(tableName)], columns: .all)),
-            ("SELECT id FROM \(tableName);", SelectStatement(tables: [.table(tableName)], columns: .columns(["id"]))),
-            ("SELECT    *     FROM    \(tableName);", SelectStatement(tables: [.table(tableName)], columns: .all)),
+            ("SELECT * FROM \(tableName);", .select(SelectStatement(tables: [.table(tableName)], columns: .all))),
+            ("SELECT id FROM \(tableName);", .select(SelectStatement(tables: [.table(tableName)], columns: .columns(["id"])))),
+            ("SELECT    *     FROM    \(tableName);", .select(SelectStatement(tables: [.table(tableName)], columns: .all))),
             ("""
             SELECT
                 *
             FROM
                 \(tableName);
-            """, SelectStatement(tables: [.table(tableName)], columns: .all)),
+            """, .select(SelectStatement(tables: [.table(tableName)], columns: .all))),
             ("""
             SELECT
                 id
             FROM
                 \(tableName);
-            """, SelectStatement(tables: [.table(tableName)], columns: .columns(["id"]))),
-            ("SELECT id, link FROM \(tableName);", SelectStatement(tables: [.table(tableName)], columns: .columns(["id", "link"]))),
-            ("select * FROM \(tableName);", SelectStatement(tables: [.table(tableName)], columns: .all)),
-            ("select * from \(tableName);", SelectStatement(tables: [.table(tableName)], columns: .all)),
+            """, .select(SelectStatement(tables: [.table(tableName)], columns: .columns(["id"])))),
+            ("SELECT id, link FROM \(tableName);", .select(SelectStatement(tables: [.table(tableName)], columns: .columns(["id", "link"])))),
+            ("select * FROM \(tableName);", .select(SelectStatement(tables: [.table(tableName)], columns: .all))),
+            ("select * from \(tableName), other_table;", .select(SelectStatement(tables: [.table(tableName), .table("other_table")], columns: .all))),
+            ("select * from \(tableName) , other_table;", .select(SelectStatement(tables: [.table(tableName), .table("other_table")], columns: .all))),
+            ("select * from \(tableName), other_table ;", .select(SelectStatement(tables: [.table(tableName), .table("other_table")], columns: .all))),
         ]
     }
+}
+
+enum SelectStatementOrError: Hashable {
+    case select(SelectStatement)
+    case error
 }
 
 let selectParser = Parse {
@@ -51,10 +68,11 @@ let selectParser = Parse {
     Whitespace()
     "FROM".ignoreCase
     Whitespace()
-    Prefix { $0 != ";".utf8.first }
+    tableParser
+    Whitespace()
     ";".utf8
-}.map { (_, column, _, tableName) in
-    SelectStatement(tables: [.table(String(tableName)!)], columns: column)
+}.map { (_, column, _, tables) in
+    SelectStatement(tables: tables, columns: column)
 }
 
 extension String {
@@ -81,6 +99,15 @@ let multipleColumns = Many {
 .map { Columns.columns($0) }
 
 let allColumns = "*".utf8.map { Columns.all }
+
+let tableParser = Many {
+    Prefix<Substring> { $0.isLetter || $0 == "_" }
+        .map { SelectedTable.table(String($0)) }
+} separator: {
+    Whitespace()
+    ","
+    Whitespace()
+}
 
 struct SelectStatement: Hashable {
     let tables: [SelectedTable]
