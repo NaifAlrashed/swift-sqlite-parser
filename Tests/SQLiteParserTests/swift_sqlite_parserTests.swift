@@ -37,22 +37,33 @@ struct SelectTestCase {
             FROM
                 \(tableName);
             """, SelectStatement(table: tableName, columns: .columns(["id"]))),
-            ("SELECT id, link FROM \(tableName);", SelectStatement(table: tableName, columns: .columns(["id", "link"])))
+            ("SELECT id, link FROM \(tableName);", SelectStatement(table: tableName, columns: .columns(["id", "link"]))),
+            ("select * FROM \(tableName);", SelectStatement(table: tableName, columns: .all)),
+            ("select * from \(tableName);", SelectStatement(table: tableName, columns: .all))
         ]
     }
 }
 
 let selectParser = Parse {
-    "SELECT".utf8
+    "SELECT".ignoreCase
     Whitespace()
     columnParser
     Whitespace()
-    "FROM".utf8
+    "FROM".ignoreCase
     Whitespace()
     Prefix { $0 != ";".utf8.first }
     ";".utf8
-}.map { (column, tableName) in
+}.map { (_, column, _, tableName) in
     SelectStatement(table: String(tableName)!, columns: column)
+}
+
+extension String {
+    var ignoreCase: Parsers.Filter<Prefix<Substring>> {
+        let lowercaseMatch = self.lowercased()
+        return Prefix<Substring>
+            .init(while: \.isLetter)
+            .filter { $0.lowercased() == lowercaseMatch }
+    }
 }
 
 let columnParser = OneOf {
