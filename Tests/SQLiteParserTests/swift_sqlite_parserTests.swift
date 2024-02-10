@@ -22,24 +22,24 @@ struct SelectTestCase {
     
     var validStatements: [(String, SelectStatement)] {
         [
-            ("SELECT * FROM \(tableName);", SelectStatement(table: tableName, columns: .all)),
-            ("SELECT id FROM \(tableName);", SelectStatement(table: tableName, columns: .columns(["id"]))),
-            ("SELECT    *     FROM    \(tableName);", SelectStatement(table: tableName, columns: .all)),
+            ("SELECT * FROM \(tableName);", SelectStatement(tables: [.table(tableName)], columns: .all)),
+            ("SELECT id FROM \(tableName);", SelectStatement(tables: [.table(tableName)], columns: .columns(["id"]))),
+            ("SELECT    *     FROM    \(tableName);", SelectStatement(tables: [.table(tableName)], columns: .all)),
             ("""
             SELECT
                 *
             FROM
                 \(tableName);
-            """, SelectStatement(table: tableName, columns: .all)),
+            """, SelectStatement(tables: [.table(tableName)], columns: .all)),
             ("""
             SELECT
                 id
             FROM
                 \(tableName);
-            """, SelectStatement(table: tableName, columns: .columns(["id"]))),
-            ("SELECT id, link FROM \(tableName);", SelectStatement(table: tableName, columns: .columns(["id", "link"]))),
-            ("select * FROM \(tableName);", SelectStatement(table: tableName, columns: .all)),
-            ("select * from \(tableName);", SelectStatement(table: tableName, columns: .all))
+            """, SelectStatement(tables: [.table(tableName)], columns: .columns(["id"]))),
+            ("SELECT id, link FROM \(tableName);", SelectStatement(tables: [.table(tableName)], columns: .columns(["id", "link"]))),
+            ("select * FROM \(tableName);", SelectStatement(tables: [.table(tableName)], columns: .all)),
+            ("select * from \(tableName);", SelectStatement(tables: [.table(tableName)], columns: .all)),
         ]
     }
 }
@@ -54,7 +54,7 @@ let selectParser = Parse {
     Prefix { $0 != ";".utf8.first }
     ";".utf8
 }.map { (_, column, _, tableName) in
-    SelectStatement(table: String(tableName)!, columns: column)
+    SelectStatement(tables: [.table(String(tableName)!)], columns: column)
 }
 
 extension String {
@@ -83,8 +83,12 @@ let multipleColumns = Many {
 let allColumns = "*".utf8.map { Columns.all }
 
 struct SelectStatement: Hashable {
-    let table: String
+    let tables: [SelectedTable]
     let columns: Columns
+}
+
+enum SelectedTable: Hashable {
+    case table(String)
 }
 
 enum Columns: Hashable {
