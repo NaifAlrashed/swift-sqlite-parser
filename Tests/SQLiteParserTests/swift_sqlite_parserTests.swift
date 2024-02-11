@@ -32,26 +32,27 @@ struct SelectTestCase {
     
     var validStatements: [(String, SelectStatementOrError)] {
         [
-            ("SELECT * FROM \(tableName);", .select(SelectStatement(tables: [.table(tableName)], columns: .all))),
-            ("SELECT id FROM \(tableName);", .select(SelectStatement(tables: [.table(tableName)], columns: .columns(["id"])))),
-            ("SELECT    *     FROM    \(tableName);", .select(SelectStatement(tables: [.table(tableName)], columns: .all))),
+            ("SELECT * FROM \(tableName);", .select(SelectStatement(tables: [.table(tableName)], columns: .all, whereClause: nil))),
+            ("SELECT id FROM \(tableName);", .select(SelectStatement(tables: [.table(tableName)], columns: .columns(["id"]), whereClause: nil))),
+            ("SELECT    *     FROM    \(tableName);", .select(SelectStatement(tables: [.table(tableName)], columns: .all, whereClause: nil))),
             ("""
             SELECT
                 *
             FROM
                 \(tableName);
-            """, .select(SelectStatement(tables: [.table(tableName)], columns: .all))),
+            """, .select(SelectStatement(tables: [.table(tableName)], columns: .all, whereClause: nil))),
             ("""
             SELECT
                 id
             FROM
                 \(tableName);
-            """, .select(SelectStatement(tables: [.table(tableName)], columns: .columns(["id"])))),
-            ("SELECT id, link FROM \(tableName);", .select(SelectStatement(tables: [.table(tableName)], columns: .columns(["id", "link"])))),
-            ("select * FROM \(tableName);", .select(SelectStatement(tables: [.table(tableName)], columns: .all))),
-            ("select * from \(tableName), other_table;", .select(SelectStatement(tables: [.table(tableName), .table("other_table")], columns: .all))),
-            ("select * from \(tableName) , other_table;", .select(SelectStatement(tables: [.table(tableName), .table("other_table")], columns: .all))),
-            ("select * from \(tableName), other_table ;", .select(SelectStatement(tables: [.table(tableName), .table("other_table")], columns: .all))),
+            """, .select(SelectStatement(tables: [.table(tableName)], columns: .columns(["id"]), whereClause: nil))),
+            ("SELECT id, link FROM \(tableName);", .select(SelectStatement(tables: [.table(tableName)], columns: .columns(["id", "link"]), whereClause: nil))),
+            ("select * FROM \(tableName);", .select(SelectStatement(tables: [.table(tableName)], columns: .all, whereClause: nil))),
+            ("select * from \(tableName), other_table;", .select(SelectStatement(tables: [.table(tableName), .table("other_table")], columns: .all, whereClause: nil))),
+            ("select * from \(tableName) , other_table;", .select(SelectStatement(tables: [.table(tableName), .table("other_table")], columns: .all, whereClause: nil))),
+            ("select * from \(tableName), other_table ;", .select(SelectStatement(tables: [.table(tableName), .table("other_table")], columns: .all, whereClause: nil))),
+            ("select * from \(tableName) WHERE id > 1;", .select(SelectStatement(tables: [.table(tableName)], columns: .all, whereClause: WhereClause(comparison: .init(first: .column("id"), operation: .bigger, second: .int(1)))))),
         ]
     }
 }
@@ -70,9 +71,11 @@ let selectParser = Parse {
     Whitespace()
     tableParser
     Whitespace()
+    Optionally { whereParser }
+    Whitespace()
     ";".utf8
-}.map { (_, column, _, tables) in
-    SelectStatement(tables: tables, columns: column)
+}.map { (_, column, _, tables, whereClause) in
+    SelectStatement(tables: tables, columns: column, whereClause: whereClause)
 }
 
 extension String {
@@ -90,7 +93,10 @@ let columnParser = OneOf {
 }
 
 let multipleColumns = Many {
-    Prefix { $0 != ",".utf8.first && $0 != " ".utf8.first && $0 != "\n".utf8.first }.compactMap(String.init)
+    Prefix {
+        $0 != ",".utf8.first && $0 != " ".utf8.first && $0 != "\n".utf8.first
+    }
+    .compactMap(String.init)
 } separator: {
     Whitespace()
     ",".utf8
@@ -101,7 +107,7 @@ let multipleColumns = Many {
 let allColumns = "*".utf8.map { Columns.all }
 
 let tableParser = Many {
-    Prefix<Substring> { $0.isLetter || $0 == "_" }
+    nameParser
         .map { SelectedTable.table(String($0)) }
 } separator: {
     Whitespace()
@@ -109,9 +115,30 @@ let tableParser = Many {
     Whitespace()
 }
 
+let nameParser = Prefix<Substring> { $0.isLetter || $0 == "_" }
+
+let whereParser = Parse {
+    "WHERE"
+    Whitespace()
+    parseComparison
+}
+.map(WhereClause.init)
+
+let parseComparison = Parse {
+    nameParser.map { ComparisonElement.column(String($0)) }
+    Whitespace()
+    ">".map { _ in ComparisonOperation.bigger }
+    Whitespace()
+    Int.parser().map(ComparisonElement.int)
+}
+.map { firstElement, operation, secondElement in
+    Comparison(first: firstElement, operation: operation, second: secondElement)
+}
+
 struct SelectStatement: Hashable {
     let tables: [SelectedTable]
     let columns: Columns
+    let whereClause: WhereClause?
 }
 
 enum SelectedTable: Hashable {
@@ -121,4 +148,23 @@ enum SelectedTable: Hashable {
 enum Columns: Hashable {
     case all
     case columns(Array<String>)
+}
+
+struct WhereClause: Hashable {
+    let comparison: Comparison
+}
+
+struct Comparison: Hashable {
+    let first: ComparisonElement
+    let operation: ComparisonOperation
+    let second: ComparisonElement
+}
+
+enum ComparisonOperation: Hashable {
+    case bigger
+}
+
+enum ComparisonElement: Hashable {
+    case column(String)
+    case int(Int)
 }
