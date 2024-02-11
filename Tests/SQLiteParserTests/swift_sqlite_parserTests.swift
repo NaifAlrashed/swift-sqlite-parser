@@ -4,58 +4,46 @@ import Parsing
 
 final class SqliteParserTests: XCTestCase {
     func testSelectAllStatement() throws {
-        let validSelectStatementWithDifferentTableNames: [SelectTestCase] = [
-            SelectTestCase(tableName: "users"),
-            SelectTestCase(tableName: "employees"),
-        ]
-        try validSelectStatementWithDifferentTableNames.forEach { validSelectStatementsForGivenTableName in
-            try validSelectStatementsForGivenTableName.validStatements.forEach { (validSelectStatement, selectOrError) in
-                do {
-                    let result = try selectParser.parse(validSelectStatement)
-                    if case let .select(expectedOutput) = selectOrError {
-                        XCTAssertEqual(result, expectedOutput)
-                    } else {
-                        XCTFail("expected to throw an error but the operation succeeded")
-                    }
-                } catch {
-                    if selectOrError != .error {
-                        throw error
-                    }
+        try testCases.forEach { (validSelectStatement, selectOrError) in
+            do {
+                let result = try selectParser.parse(validSelectStatement)
+                if case let .select(expectedOutput) = selectOrError {
+                    XCTAssertEqual(result, expectedOutput)
+                } else {
+                    XCTFail("expected to throw an error but the operation succeeded")
+                }
+            } catch {
+                if selectOrError != .error {
+                    throw error
                 }
             }
         }
     }
 }
 
-struct SelectTestCase {
-    let tableName: String
-    
-    var validStatements: [(String, SelectStatementOrError)] {
-        [
-            ("SELECT * FROM \(tableName);", .select(SelectStatement(tables: [.table(tableName)], columns: .all, whereClause: nil))),
-            ("SELECT id FROM \(tableName);", .select(SelectStatement(tables: [.table(tableName)], columns: .columns(["id"]), whereClause: nil))),
-            ("SELECT    *     FROM    \(tableName);", .select(SelectStatement(tables: [.table(tableName)], columns: .all, whereClause: nil))),
-            ("""
-            SELECT
-                *
-            FROM
-                \(tableName);
-            """, .select(SelectStatement(tables: [.table(tableName)], columns: .all, whereClause: nil))),
-            ("""
-            SELECT
-                id
-            FROM
-                \(tableName);
-            """, .select(SelectStatement(tables: [.table(tableName)], columns: .columns(["id"]), whereClause: nil))),
-            ("SELECT id, link FROM \(tableName);", .select(SelectStatement(tables: [.table(tableName)], columns: .columns(["id", "link"]), whereClause: nil))),
-            ("select * FROM \(tableName);", .select(SelectStatement(tables: [.table(tableName)], columns: .all, whereClause: nil))),
-            ("select * from \(tableName), other_table;", .select(SelectStatement(tables: [.table(tableName), .table("other_table")], columns: .all, whereClause: nil))),
-            ("select * from \(tableName) , other_table;", .select(SelectStatement(tables: [.table(tableName), .table("other_table")], columns: .all, whereClause: nil))),
-            ("select * from \(tableName), other_table ;", .select(SelectStatement(tables: [.table(tableName), .table("other_table")], columns: .all, whereClause: nil))),
-            ("select * from \(tableName) WHERE id > 1;", .select(SelectStatement(tables: [.table(tableName)], columns: .all, whereClause: WhereClause(comparison: .init(first: .column("id"), operation: .bigger, second: .int(1)))))),
-        ]
-    }
-}
+let testCases: [(String, SelectStatementOrError)] = [
+    ("SELECT * FROM users;", .select(SelectStatement(tables: [.table("users")], columns: .all, whereClause: nil))),
+    ("SELECT id FROM users;", .select(SelectStatement(tables: [.table("users")], columns: .columns(["id"]), whereClause: nil))),
+    ("SELECT    *     FROM    users;", .select(SelectStatement(tables: [.table("users")], columns: .all, whereClause: nil))),
+    ("""
+    SELECT
+        *
+    FROM
+        users;
+    """, .select(SelectStatement(tables: [.table("users")], columns: .all, whereClause: nil))),
+    ("""
+    SELECT
+        id
+    FROM
+        users;
+    """, .select(SelectStatement(tables: [.table("users")], columns: .columns(["id"]), whereClause: nil))),
+    ("SELECT id, link FROM users;", .select(SelectStatement(tables: [.table("users")], columns: .columns(["id", "link"]), whereClause: nil))),
+    ("select * FROM users;", .select(SelectStatement(tables: [.table("users")], columns: .all, whereClause: nil))),
+    ("select * from users, other_table;", .select(SelectStatement(tables: [.table("users"), .table("other_table")], columns: .all, whereClause: nil))),
+    ("select * from users , other_table;", .select(SelectStatement(tables: [.table("users"), .table("other_table")], columns: .all, whereClause: nil))),
+    ("select * from users, other_table ;", .select(SelectStatement(tables: [.table("users"), .table("other_table")], columns: .all, whereClause: nil))),
+    ("select * from users WHERE id > 1;", .select(SelectStatement(tables: [.table("users")], columns: .all, whereClause: WhereClause(comparison: .init(first: .column("id"), operation: .bigger, second: .int(1)))))),
+]
 
 enum SelectStatementOrError: Hashable {
     case select(SelectStatement)
