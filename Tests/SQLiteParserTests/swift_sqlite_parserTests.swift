@@ -43,6 +43,7 @@ let testCases: [(String, SelectStatementOrError)] = [
     ("select * from users , other_table;", .select(SelectStatement(tables: [.table("users"), .table("other_table")], columns: .all, whereClause: nil))),
     ("select * from users, other_table ;", .select(SelectStatement(tables: [.table("users"), .table("other_table")], columns: .all, whereClause: nil))),
     ("select * from users WHERE id > 1;", .select(SelectStatement(tables: [.table("users")], columns: .all, whereClause: WhereClause(comparison: .init(first: .column("id"), operation: .bigger, second: .int(1)))))),
+    ("select * from users where id > 1;", .select(SelectStatement(tables: [.table("users")], columns: .all, whereClause: WhereClause(comparison: .init(first: .column("id"), operation: .bigger, second: .int(1)))))),
 ]
 
 enum SelectStatementOrError: Hashable {
@@ -106,7 +107,7 @@ let tableParser = Many {
 let nameParser = Prefix<Substring> { $0.isLetter || $0 == "_" }
 
 let whereParser = Parse {
-    "WHERE"
+    "WHERE".ignoreCase.map { _ in }
     Whitespace()
     parseComparison
 }
