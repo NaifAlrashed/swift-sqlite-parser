@@ -8,6 +8,6 @@
 import Foundation
 import Parsing
 
-let numericLiteralParser = Parse {
-    Double.parser(of: Substring.self)
+let numericLiteralParser = Parse(input: Substring.self) {
+    Double.parser()
 }

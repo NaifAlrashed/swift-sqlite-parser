@@ -1,6 +1,6 @@
 //
-//  LiteralValueParserTests.swift
-//  
+//  NumericalLiteralParserTests.swift
+//
 //
 //  Created by Naif Alrashed on 14/02/2024.
 //
@@ -8,7 +8,7 @@
 import XCTest
 @testable import SQLiteParser
 
-final class LiteralValueParserTests: XCTestCase {
+final class NumericalLiteralParserTests: XCTestCase {
     func testCanParseInteger() throws {
         for i in (UInt.max-500)...UInt.max {
             let stringValue = "\(i)"
@@ -25,6 +25,12 @@ final class LiteralValueParserTests: XCTestCase {
             let stringValue = ".\(i)"
             let double = Double(stringValue)!
             try XCTAssertEqual(numericLiteralParser.parse(stringValue[...]), double)
+        }
+        var i = 500.0
+        while i < 500.500 {
+            let stringValue = "\(i)"
+            try XCTAssertEqual(numericLiteralParser.parse(stringValue[...]), i)
+            i += 0.1
         }
     }
 }
