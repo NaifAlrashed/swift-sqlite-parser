@@ -20,7 +20,7 @@ final class NumericalLiteralParserTests: XCTestCase {
         }
     }
     
-    func testCanParseFloatingPointValuesStartingWithDot() throws {
+    func testCanParseFloatingPointValues() throws {
         for i in 0...500 {
             let stringValue = ".\(i)"
             let double = Double(stringValue)!
@@ -32,5 +32,13 @@ final class NumericalLiteralParserTests: XCTestCase {
             try XCTAssertEqual(numericLiteralParser.parse(stringValue[...]), i)
             i += 0.1
         }
+    }
+    
+    func testCanParseHexValues() throws {
+        try XCTAssertEqual(numericLiteralParser.parse("0x444"), 0x444)
+    }
+    
+    func testCanParseScientificNotation() throws {
+        _ = try! numericLiteralParser.parse("3e+3")
     }
 }
