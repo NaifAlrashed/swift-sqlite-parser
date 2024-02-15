@@ -39,6 +39,6 @@ final class NumericalLiteralParserTests: XCTestCase {
     }
     
     func testCanParseScientificNotation() throws {
-        _ = try! numericLiteralParser.parse("3e+3")
+        _ = try numericLiteralParser.parse("3e+3")
     }
 }
